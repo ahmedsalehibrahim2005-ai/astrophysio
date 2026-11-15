@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroPhysio — Offline health monitor</title>
+<style>
+:root{--bg:#03060f;--panel:rgba(11,19,40,.78);--line:#17325e;--ink:#e6f1ff;--steel:#7f93b8;--acc:#00e0ff;--acc2:#7c5cff;--ok:#00d68f;--warn:#ffb020;--crit:#ff3b5c}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font:16px/1.5 "Segoe UI",Helvetica,Arial,sans-serif;font-variant-numeric:tabular-nums;background:radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 60%,#9fdcff,transparent),radial-gradient(1px 1px at 45% 85%,#fff,transparent),radial-gradient(ellipse at 85% -10%,#1b1458,transparent 55%),radial-gradient(ellipse at 0 100%,#05304a,transparent 50%),var(--bg);background-size:260px 260px,190px 190px,330px 330px,100% 100%,100% 100%,100% 100%;background-attachment:fixed}
+main{max-width:1100px;margin:0 auto;padding:16px 18px 90px 108px}.lock{max-width:460px;margin:0 auto;padding:16vh 20px}
+h1{font-size:1.5rem;margin:0;letter-spacing:.18em;text-transform:uppercase;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:.8rem;margin:20px 0 10px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.2em}
+nav{position:fixed;left:0;top:0;bottom:0;width:92px;display:flex;flex-direction:column;gap:6px;padding:14px 8px;background:rgba(4,9,22,.92);border-right:1px solid var(--line);z-index:20}
+nav button{background:transparent;border:1px solid transparent;color:var(--steel);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;padding:10px 2px;letter-spacing:.06em;text-transform:uppercase}
+nav button i{font-style:normal;font-size:1.3rem}nav button:hover{color:var(--ink)}nav button.on{color:var(--acc);border-color:var(--acc);background:rgba(0,224,255,.08);box-shadow:0 0 14px rgba(0,224,255,.25)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;overflow:hidden;padding:6px 0}
+.top svg{width:60px;height:60px;flex:none;filter:drop-shadow(0 0 8px #00e0ff88)}.brand{display:flex;align-items:center;gap:12px}.mday{font-size:.72rem;color:var(--acc);letter-spacing:.3em}
+.hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.2;z-index:-1}
+.net{font-size:.75rem;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--steel)}
+.status{margin:14px 0;padding:22px;border-radius:14px;color:#fff;background:linear-gradient(135deg,#1c2a4a,#0d1730);border:1px solid var(--line)}
+.status.normal{background:linear-gradient(135deg,#00a36c,#06402f);border-color:var(--ok);box-shadow:0 0 28px rgba(0,214,143,.25)}
+.status.critical{background:linear-gradient(135deg,#ff3b5c,#5a0a1c);border-color:var(--crit);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,59,92,.4)}50%{box-shadow:0 0 42px rgba(255,59,92,.95)}}
+.word{font-size:2.3rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.sub{opacity:.9}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.chartbox,.box,pre.report,.item{background:var(--panel);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(6px)}
+.chartbox,.box{padding:4px 14px 12px}.chartbox h2,.box h2{margin-top:10px}canvas{width:100%;height:auto}
+.list{display:grid;gap:8px}.item{border-left:4px solid var(--steel);padding:10px 14px}.item.warning{border-left-color:var(--warn)}.item.critical{border-left-color:var(--crit);box-shadow:0 0 16px rgba(255,59,92,.3)}.item b{display:block}.item small{color:var(--steel)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}
+button,.btn,input{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:#07112a;color:var(--ink)}
+button,.btn{background:linear-gradient(90deg,#0099c8,#5a3df0);border:0;color:#fff;cursor:pointer;font-weight:600}button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.add input{width:10.5rem}.add b{width:100%;font-size:.75rem;color:var(--steel);text-transform:uppercase;letter-spacing:.15em}.msg{color:var(--steel);min-height:1.4em}
+.audit{list-style:none;padding:0;margin:0;font-size:.85rem;color:var(--steel)}.foot{color:var(--steel);font-size:.75rem;margin-top:26px}
+.lock input{width:100%;margin:10px 0}.lock{text-align:center}.lock svg{filter:drop-shadow(0 0 14px #00e0ff)}
+.srow{display:flex;align-items:center;gap:4px;margin:4px 0;font-size:.8rem;color:var(--steel)}.srow span:first-child{width:2.4rem}.srow span:last-child{margin-left:8px}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid #25407a;display:inline-block}.dot.on{background:var(--acc);border-color:var(--acc);box-shadow:0 0 8px var(--acc)}
+.vids{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}.vid{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}.vid video{width:100%;border-radius:8px;background:#000}.vid small{color:var(--steel)}
+.badge{font-size:.68rem;padding:1px 8px;border-radius:99px;border:1px solid var(--acc);color:var(--acc);letter-spacing:.08em}
+pre.report{white-space:pre-wrap;padding:14px;font:inherit;font-size:.9rem;margin:0}
+@media(max-width:720px){nav{top:auto;width:100%;height:64px;flex-direction:row;justify-content:space-around;border-right:0;border-top:1px solid var(--line);padding:4px}nav button{flex:1;padding:4px 0;font-size:.6rem}main{padding:12px 12px 84px}.word{font-size:1.7rem}}
+</style>
+</head>
+<body>
+<section id="lock" class="lock">
+  <svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="14" fill="#5b8cff"/><ellipse cx="32" cy="32" rx="28" ry="9" fill="none" stroke="#cfe0ff" stroke-width="2" transform="rotate(-20 32 32)"/><circle cx="55" cy="22" r="3" fill="#fff"/></svg>
+  <h1>AstroPhysio</h1>
+  <p>Prototype note: this app normally opens by itself with a built-in key, so it is not password-protected. You are seeing this screen because older data on this device was locked with a previous password. Enter that old password to open it, or erase the old data to start over.</p>
+  <input id="pass" type="password" placeholder="Old passphrase" autocomplete="off">
+  <button id="unlockBtn">Unlock</button>
+  <p id="lockMsg" class="msg"></p>
+  <button id="resetBtn" class="ghost">Forgot passphrase? Erase data and start over</button>
+</section>
+<main id="app" hidden>
+  <nav id="nav"><button data-v="dash" class="on"><i>◉</i>Dashboard</button><button data-v="videos"><i>▶</i>Videos</button><button data-v="reports"><i>▤</i>Reports</button><button data-v="outbox"><i>✉</i>Earth link</button><button data-v="data"><i>⚙</i>Data</button><button data-v="log"><i>☰</i>Log</button></nav>
+  <header class="top">
+    <img class="hero" src="assets/images/hero.jpg" alt="" onerror="this.remove()">
+    <div class="brand"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="14" fill="#5b8cff"/><ellipse cx="32" cy="32" rx="28" ry="9" fill="none" stroke="#cfe0ff" stroke-width="2" transform="rotate(-20 32 32)"/><circle cx="55" cy="22" r="3" fill="#fff"/></svg><div><h1>AstroPhysio</h1><div id="mday" class="mday">MISSION DAY 0</div></div></div>
+    <span class="row"><button id="alarmBtn" class="ghost">🔔 Test alarm</button><button id="muteBtn" class="ghost">🔊 Sound on</button><span id="net" class="net">Checking link…</span></span>
+  </header>
+  <div class="view" id="v-dash">
+  <section id="statusCard" class="status learning"><div id="statusWord" class="word">Learning</div><div id="statusSub" class="sub"></div></section>
+  <section class="grid">
+    <div class="chartbox"><h2>Muscle strength (% of baseline) <span class="badge">NASA limit 80%</span></h2><canvas id="cMuscle" width="400" height="140"></canvas></div>
+    <div class="chartbox"><h2>Resting heart rate (bpm)</h2><canvas id="cHR" width="400" height="140"></canvas></div>
+    <div class="chartbox"><h2>Activity (steps)</h2><canvas id="cSteps" width="400" height="140"></canvas></div>
+    <div class="box"><h2>Sleep: one circle = one hour</h2><div id="sleepDots"></div><canvas id="cSleep" width="400" height="110"></canvas></div>
+  </section>
+  <section><h2>Other measures</h2><div id="others" class="box"></div></section>
+  <section><h2>Alerts</h2><div id="alerts" class="list"></div></section>
+  <section><h2>Suggested today</h2><div id="exercises" class="list"></div></section>
+  </div>
+  <div class="view" id="v-videos" hidden>
+  <section><h2>Exercise videos</h2><div id="vids" class="vids"></div></section>
+  </div>
+  <div class="view" id="v-reports" hidden>
+  <section><h2>Reports</h2>
+    <div class="row"><button id="dayBtn">Daily report</button><button id="weekBtn">Weekly report</button><button id="dlBtn" class="ghost">Download as text</button></div>
+    <pre id="report" class="report">Press a button, or add a day to get one automatically.</pre>
+  </section>
+  </div>
+  <div class="view" id="v-outbox" hidden>
+  <section><h2>Send to Earth (outbox)</h2>
+    <div class="row"><button id="testBtn" class="ghost">Test: queue the 12 AM report now</button><button id="sendAllBtn">Link restored: send all waiting</button></div>
+    <div id="outbox" class="list"></div>
+  </section>
+  </div>
+  <div class="view" id="v-data" hidden>
+  <section class="controls"><h2>Data</h2>
+    <div class="row"><button id="demoBtn">Load 30-day simulated data</button><label class="btn">Import CSV<input id="csv" type="file" accept=".csv" hidden></label><button id="clearBtn" class="ghost">Clear data</button></div>
+    <div class="row add"><b>Baseline: enter once (your own first measurement, same units as daily)</b><input id="bMS" type="number" step="any" placeholder="M.S baseline"><input id="bHS" type="number" step="any" placeholder="Hip/spine baseline"><input id="bFN" type="number" step="any" placeholder="Femoral neck baseline"><button id="saveBase">Save baseline</button></div>
+    <p id="baseNote" class="msg"></p>
+    <div class="row add"><b>Daily</b><input id="inHR" type="number" placeholder="Resting HR"><input id="inSleep" type="number" step="0.1" placeholder="Sleep h"><input id="inSteps" type="number" placeholder="Steps"><input id="inSpO2" type="number" placeholder="Blood O2 %"><input id="inBPs" type="number" placeholder="BP systolic"><input id="inBPd" type="number" placeholder="BP diastolic"></div>
+    <div class="row add"><b>Bone</b><input id="inBoneHS" type="number" step="0.1" placeholder="Hip/spine (raw)"><input id="inBoneFN" type="number" step="0.1" placeholder="Femoral neck (raw)"></div>
+    <div class="row add"><b>ARED Squat measure</b><input id="inMrom" type="number" step="0.1" placeholder="MROM"><input id="inMuscle" type="number" placeholder="M.S (raw)"><button id="addBtn">Add today</button></div>
+    <div class="row"><button id="syncBtn">Connection restored: send report to Earth</button></div>
+    <p id="msg" class="msg"></p>
+  </section>
+  </div>
+  <div class="view" id="v-log" hidden>
+  <section><h2>Event log</h2><ul id="audit" class="audit"></ul></section>
+  </div>
+  <p class="foot">Decision-support prototype. Not a medical device. Demo data is simulated. Muscle limit: NASA-STD-3001 Vol. 1 Rev C, [V1 4024]. Bone limit (95% hip/spine): [V1 4027]. Heart rate, sleep and steps are recorded and reported only (no NASA limit found, so no alerts). Any NASA images: courtesy NASA.</p>
+</main>
+
+<script>
+// crypto.js — تشفير AES-GCM بمفتاح مشتق من كلمة سر (PBKDF2). كله محلي عبر Web Crypto API.
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+async function deriveKey(passphrase, salt) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptJSON(key, obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj)));
+  return { iv, data };
+}
+
+async function decryptJSON(key, { iv, data }) {
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.parse(dec.decode(plain));
+}
+
+// engine.js — محرك التنبيهات. دوال نقية بدون DOM، فسهل تختبرها.
+const CFG = {
+  muscle: { crit: 80 }, // % of baseline. NASA-STD-3001 V1 4024
+};
+// ⚠️ كل الأرقام دي مؤقتة — زميلتك (العلاج الطبيعي) لازم تراجعها من NASA-STD-3001.
+
+const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+const metrics = (rs) => ({
+  restingHR: avg(rs.map((r) => r.restingHR)),
+  sleepHours: avg(rs.map((r) => r.sleepHours)),
+  steps: avg(rs.map((r) => r.steps)),
+  muscle: rs.some((r) => r.muscle != null) ? avg(rs.filter((r) => r.muscle != null).map((r) => r.muscle)) : null,
+});
+
+function analyze(readings) {
+  // Only NASA-STD-3001 limits raise alerts. Muscle: latest reading must stay at or above 80% of baseline [V1 4024]
+  const withM = readings.filter((r) => r.muscle != null), mNow = withM.length ? withM[withM.length - 1].muscle : null;
+  const alerts = [];
+  if (mNow != null && mNow < CFG.muscle.crit) alerts.push({ type: 'muscle', severity: 'critical', title: 'Muscle strength below 80% of baseline',
+    reason: `Strength at ${mNow.toFixed(0)}% of baseline (NASA limit: 80%)`, advice: 'Do the resistance exercises and watch the videos below.' });
+  const status = alerts.length ? 'critical' : readings.length ? 'normal' : 'learning';
+  return { status, alerts, baseline: null, current: null };
+}
+
+// يرجّع التمارين المناسبة لكل نوع تنبيه من exercises.json
+function suggestExercises(alerts, exercises) {
+  const types = new Set(alerts.map((a) => a.type));
+  return exercises.filter((e) => e.for.some((t) => types.has(t))).slice(0, 4);
+}
+
+// data.js — بيانات محاكاة (30 يوم) + استيراد CSV. وضّح في العرض إنها SIMULATED.
+function rng(seed) { // مولّد عشوائي ثابت عشان النتيجة تتكرر
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function demoData() {
+  const rand = rng(42);
+  const noise = (m) => (rand() - 0.5) * 2 * m;
+  const out = [];
+  for (let day = 1; day <= 30; day++) {
+    const drift = day > 17 ? (day - 17) / 13 : 0; // التدهور يبدأ يوم 18
+    out.push({
+      day,
+      restingHR: Math.round(62 + noise(2) + drift * 11),
+      sleepHours: +(7.2 + noise(0.4) - drift * 2.6).toFixed(1),
+      steps: Math.round(9000 + noise(800) - drift * 4800),
+      muscle: Math.round(100 + noise(1.5) - drift * 27),
+    });
+  }
+  return out;
+}
+
+// CSV بالأعمدة: day,restingHR,sleepHours,steps
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const head = lines.shift().split(',').map((h) => h.trim());
+  const need = ['day', 'restingHR', 'sleepHours', 'steps'];
+  if (!need.every((n) => head.includes(n))) throw new Error('CSV header must be: ' + need.join(','));
+  return lines.filter(Boolean).map((l) => {
+    const c = l.split(',');
+    const row = {};
+    head.forEach((h, i) => (row[h] = Number(c[i])));
+    return { day: row.day, restingHR: row.restingHR, sleepHours: row.sleepHours, steps: row.steps, muscle: head.includes('muscle') ? row.muscle : undefined };
+  });
+}
+
+const EXERCISES = [
+ {
+  "id": "squat",
+  "name": "Resistive squat",
+  "muscles": "Quadriceps, glutes, spinal extensors",
+  "dose": "3 x 10, 60-90 s rest",
+  "for": [
+   "activity", "muscle"
+  ],
+  "how": "Load through the legs with a resistive device. Keep the trunk upright, controlled tempo.",
+  "reviewed": false
+ },
+ {
+  "id": "heel",
+  "name": "Resistive heel raises",
+  "muscles": "Calf (soleus, gastrocnemius)",
+  "dose": "3 x 15",
+  "for": [
+   "activity", "muscle"
+  ],
+  "how": "Rise onto toes under load, slow lowering. Calf and soleus are among the most affected postural muscles.",
+  "reviewed": false
+ },
+ {
+  "id": "deadlift",
+  "name": "Deadlift pattern",
+  "muscles": "Hamstrings, glutes, back extensors",
+  "dose": "3 x 8",
+  "for": [
+   "activity", "muscle"
+  ],
+  "how": "Hip-hinge under resistance with neutral spine. Supports bone loading in hip and spine.",
+  "reviewed": false
+ },
+ {
+  "id": "row",
+  "name": "Band row",
+  "muscles": "Mid-back, rear shoulder",
+  "dose": "3 x 12",
+  "for": [
+   "activity", "muscle"
+  ],
+  "how": "Pull the band to the ribs, squeeze shoulder blades, slow return.",
+  "reviewed": false
+ },
+ {
+  "id": "breath",
+  "name": "Box breathing recovery",
+  "muscles": "Autonomic recovery",
+  "dose": "5 min",
+  "for": [
+   "hr"
+  ],
+  "how": "Inhale 4 s, hold 4 s, exhale 4 s, hold 4 s. Seated or floating, relaxed.",
+  "reviewed": false
+ },
+ {
+  "id": "stretch",
+  "name": "Gentle full-body stretch",
+  "muscles": "Hamstrings, hip flexors, back",
+  "dose": "8-10 min",
+  "for": [
+   "hr",
+   "sleep"
+  ],
+  "how": "Slow static stretches, 30 s each, no bouncing.",
+  "reviewed": false
+ },
+ {
+  "id": "winddown",
+  "name": "Sleep wind-down routine",
+  "muscles": "Sleep hygiene",
+  "dose": "20 min before sleep",
+  "for": [
+   "sleep"
+  ],
+  "how": "Dim lights, no screens, light stretching, then breathing exercise.",
+  "reviewed": false
+ }
+];
+const store = (() => {
+// storage.js — IndexedDB: القراءات متشفرة، وسجل الأحداث (audit) بدون أي بيانات صحية.
+
+let _db = null;
+function db() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('astrophysio', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('readings', { keyPath: 'day' });
+      d.createObjectStore('audit', { autoIncrement: true });
+      d.createObjectStore('meta');
+    };
+    r.onsuccess = () => { _db = r.result; resolve(_db); };
+    r.onerror = () => reject(r.error);
+  });
+}
+const wrap = (req) => new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+const get = async (s, k) => wrap((await db()).transaction(s).objectStore(s).get(k));
+const getAll = async (s) => wrap((await db()).transaction(s).objectStore(s).getAll());
+const put = async (s, v, k) => {
+  const st = (await db()).transaction(s, 'readwrite').objectStore(s);
+  return wrap(k === undefined ? st.put(v) : st.put(v, k));
+};
+
+async function log(event) {
+  await put('audit', { t: new Date().toISOString(), event });
+}
+const getAudit = async () => (await getAll('audit')).slice(-15).reverse();
+
+// أول مرة: ينشئ salt وعينة تحقق. بعد كده: يتأكد إن كلمة السر صح.
+async function unlock(passphrase) {
+  let salt = await get('meta', 'salt');
+  if (!salt) { salt = crypto.getRandomValues(new Uint8Array(16)); await put('meta', salt, 'salt'); }
+  const key = await deriveKey(passphrase, salt);
+  const check = await get('meta', 'check');
+  if (!check) {
+    await put('meta', await encryptJSON(key, { ok: 1 }), 'check');
+  } else {
+    try { await decryptJSON(key, check); }
+    catch { await log('unlock_failed'); throw new Error('Wrong passphrase'); }
+  }
+  await log('unlock_ok');
+  return key;
+}
+
+async function saveReading(key, r) {
+  const { day, ...rest } = r;
+  const { iv, data } = await encryptJSON(key, rest);
+  await put('readings', { day, iv, data });
+}
+
+async function getReadings(key) {
+  const rows = await getAll('readings');
+  const out = [];
+  for (const row of rows) out.push({ day: row.day, ...(await decryptJSON(key, row)) });
+  return out.sort((a, b) => a.day - b.day);
+}
+
+async function clearReadings() {
+  const st = (await db()).transaction('readings', 'readwrite').objectStore('readings');
+  await wrap(st.clear());
+  await log('readings_cleared');
+}
+
+// يمسح قاعدة البيانات بالكامل (للي نسي كلمة السر)
+function resetAll() {
+  return new Promise((res) => {
+    if (_db) { _db.close(); _db = null; }
+    const r = indexedDB.deleteDatabase('astrophysio');
+    r.onsuccess = r.onerror = r.onblocked = () => res();
+  });
+}
+
+return { log, getAudit, unlock, saveReading, getReadings, clearReadings, resetAll };
+})();
+// app.js — الواجهة: بتربط التخزين + المحرك + الرسم.
+
+
+
+let key = null, readings = [], exercises = [];
+const $ = (id) => document.getElementById(id);
+const say = (t) => ($('msg').textContent = t);
+
+// ---------- الـ Offline ----------
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
+function updateNet() {
+  $('net').textContent = navigator.onLine ? 'Link to Earth: up' : 'Offline mode: running on board';
+  $('net').classList.toggle('off', !navigator.onLine);
+}
+addEventListener('online', updateNet); addEventListener('offline', updateNet);
+
+// ---------- فتح القفل ----------
+$('unlockBtn').onclick = async () => {
+  try {
+    if (!$('pass').value) { $('lockMsg').textContent = 'Enter a passphrase.'; return; }
+    key = await store.unlock($('pass').value);
+    exercises = EXERCISES;
+    $('lock').hidden = true; $('app').hidden = false;
+    updateNet(); await refresh();
+  } catch (e) { console.error(e); $('lockMsg').textContent = e.message === 'Wrong passphrase' ? 'Wrong passphrase. This attempt was logged.' : 'Error: ' + e.message; }
+};
+$('resetBtn').onclick = async () => {
+  if (confirm('This permanently erases all data on this device. Continue?')) { await store.resetAll(); location.reload(); }
+};
+$('pass').addEventListener('keydown', (e) => e.key === 'Enter' && $('unlockBtn').click());
+
+// ---------- الرسم ----------
+function chart(cv, vals, base, color, limit) {
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!vals.length) return;
+  const lo = Math.min(...vals, base ?? Infinity, limit ?? Infinity) * 0.95, hi = Math.max(...vals, base ?? -Infinity, limit ?? -Infinity) * 1.05;
+  const x = (i) => 10 + (i * (W - 20)) / Math.max(vals.length - 1, 1);
+  const y = (v) => H - 10 - ((v - lo) / (hi - lo || 1)) * (H - 20);
+  if (base) {
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = '#8a969d'; ctx.beginPath();
+    ctx.moveTo(10, y(base)); ctx.lineTo(W - 10, y(base)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (limit) { ctx.setLineDash([2, 4]); ctx.strokeStyle = '#ff5d5d'; ctx.beginPath(); ctx.moveTo(10, y(limit)); ctx.lineTo(W - 10, y(limit)); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.beginPath();
+  vals.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)))); ctx.stroke();
+}
+
+// ---------- العرض ----------
+const WORDS = { learning: 'No data yet', normal: 'Stable', warning: 'Caution', critical: 'Action needed' };
+async function refresh() {
+  readings = await store.getReadings(key);
+  $('mday').textContent = 'MISSION DAY ' + (readings.length ? readings[readings.length - 1].day : 0);
+  const a = analyze(readings);
+  $('statusCard').className = 'status ' + a.status;
+  $('statusWord').textContent = WORDS[a.status];
+  $('statusSub').textContent = a.status === 'learning'
+    ? 'Add a day to start monitoring.'
+    : `${readings.length} day(s) recorded. Alerts use NASA limits only: muscle at least 80%, bone at least 95% (hip/spine) and 90% (femoral neck).`;
+
+  chart($('cHR'), readings.map((r) => r.restingHR), null, '#d6453d');
+  chart($('cSleep'), readings.map((r) => r.sleepHours), null, '#2a6fb0');
+  chart($('cSteps'), readings.map((r) => r.steps), null, '#2f9e6e');
+
+  $('alerts').innerHTML = a.alerts.length
+    ? a.alerts.map((x) => `<div class="item ${x.severity}"><b>${x.title}</b>${x.reason}<br><small>${x.advice}</small></div>`).join('')
+    : '<div class="item">No alerts.</div>';
+
+  const ex = suggestExercises(a.alerts, exercises);
+  $('exercises').innerHTML = ex.length
+    ? ex.map((e) => `<div class="item"><b>${e.name}</b>${e.muscles} · ${e.dose}<br><small>${e.how}</small></div>`).join('')
+    : '<div class="item">Nothing needed. Keep the normal routine.</div>';
+
+  drawExtras();
+
+  $('audit').innerHTML = (await store.getAudit()).map((l) => `<li>${l.t.replace('T', ' ').slice(0, 19)} — ${l.event}</li>`).join('');
+}
+
+// ---------- أزرار البيانات ----------
+$('demoBtn').onclick = async () => {
+  for (const r of demoData()) await store.saveReading(key, r);
+  await store.log('demo_data_loaded'); say('Simulated data loaded.'); await refresh(); showReport(7);
+};
+$('csv').onchange = async (e) => {
+  try {
+    const rows = parseCSV(await e.target.files[0].text());
+    for (const r of rows) await store.saveReading(key, r);
+    await store.log('csv_imported:' + rows.length); say(`Imported ${rows.length} rows.`); refresh();
+  } catch (err) { say('Import failed: ' + err.message); }
+};
+$('clearBtn').onclick = async () => { await store.clearReadings(); say('All readings deleted.'); refresh(); };
+$('addBtn').onclick = async () => {
+  const hr = +$('inHR').value, sl = +$('inSleep').value, st = +$('inSteps').value;
+  if (!hr || !sl || !st) return say('Fill HR, sleep and steps (muscle % is optional).');
+  const day = readings.length ? readings[readings.length - 1].day + 1 : 1;
+  await store.saveReading(key, { day, restingHR: hr, sleepHours: sl, steps: st, muscle: n('inMuscle'), spo2: n('inSpO2'), bpS: n('inBPs'), bpD: n('inBPd'), mrom: n('inMrom'), boneHS: n('inBoneHS'), boneFN: n('inBoneFN') });
+  await store.log('reading_added'); say(`Day ${day} saved.`); await refresh(); showReport(day % 7 === 0 ? 7 : 1);
+};
+
+// ---------- مزامنة الأرض (محاكاة) ----------
+$('syncBtn').dataset.old = 1; $('syncBtn').onclick = async () => {
+  const a = analyze(readings);
+  const report = {
+    generatedAt: new Date().toISOString(), daysRecorded: readings.length, status: a.status,
+    alerts: a.alerts,
+    note: 'Prototype decision-support summary. Raw readings stay on board.',
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob); link.download = 'earth-report.json'; link.click();
+  await store.log('report_exported'); say('Report generated for Earth (summary only, no raw data).'); refresh();
+};
+
+// ---------- Muscle chart, sleep circles, videos, reports ----------
+// Videos shown in the Exercise videos section (files live in assets/videos/). Add a file name here to show it. The title is the file name
+const VIDEOS = { squat: ['ARED Squat.mp4', 'Sledge Squat.mp4', 'Astronaut Fitness & Exercise Routine.mp4', 'Resistance Training in Microgravity.mp4'] };
+let vidsDrawn = false;
+function drawExtras() {
+  const mus = readings.filter((r) => r.muscle != null).map((r) => r.muscle);
+  chart($('cMuscle'), mus, null, '#b48cff', 80);
+  const dots = (h) => Array.from({ length: 9 }, (_, i) => `<i class="dot${i < Math.round(h) ? ' on' : ''}"></i>`).join('');
+  $('sleepDots').innerHTML = readings.slice(-7).reverse().map((r) => `<div class="srow"><span>D${r.day}</span>${dots(r.sleepHours)}<span>${r.sleepHours} h</span></div>`).join('') || '<div class="srow">No sleep data yet.</div>';
+  if (!vidsDrawn && exercises.length) {
+    vidsDrawn = true;
+    $('vids').innerHTML = Object.values(VIDEOS).flat().map((f) => `<div class="vid"><video controls preload="none" src="assets/videos/${encodeURI(f)}" onerror="this.outerHTML='<small>Add assets/videos/${f}</small>'"></video><b>${f.replace(/\.mp4$/, '')}</b></div>`).join('');
+  }
+}
+function buildReport(n) {
+  const rs = readings.slice(-n); if (!rs.length) return null;
+  const a = analyze(readings);
+  const m = (k) => { const v = rs.map((r) => r[k]).filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+  return { n, days: rs.map((r) => r.day), status: a.status, avg: { hr: m('restingHR'), sleep: m('sleepHours'), steps: m('steps'), muscle: m('muscle') },
+    base: a.baseline, alerts: a.alerts.map((x) => x.title + ': ' + x.reason) };
+}
+function showReport(n) {
+  const r = buildReport(n); if (!r) { $('report').textContent = 'No data yet.'; return; }
+  const f = (v, d = 0) => (v == null ? '-' : v.toFixed(d)), b = r.base;
+  $('report').textContent = `${n > 1 ? 'WEEKLY' : 'DAILY'} REPORT, day ${r.days[0]}${n > 1 ? ' to ' + r.days[r.days.length - 1] : ''}\n` +
+    `Status: ${WORDS[r.status]}\n` +
+    `Muscle strength: ${f(r.avg.muscle)}% of baseline (NASA limit 80%)\n` +
+    `Resting HR: ${f(r.avg.hr)} bpm\n` +
+    `Sleep: ${f(r.avg.sleep, 1)} h/night\n` +
+    `Steps: ${f(r.avg.steps)}\n` +
+    `Alerts: ${r.alerts.length ? '\n - ' + r.alerts.join('\n - ') : 'none'}`;
+}
+$('dayBtn').onclick = () => showReport(1);
+$('weekBtn').onclick = () => showReport(7);
+$('dlBtn').onclick = async () => {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([$('report').textContent], { type: 'text/plain' })); link.download = 'astrophysio-report.txt'; link.click();
+  await store.log('report_downloaded'); refresh();
+};
+
+// ---------- Other measures, bone limits, outbox to Earth ----------
+const BKEY = { inMuscle: 'ms', inBoneHS: 'hs', inBoneFN: 'fn' };
+function getBase() { try { return JSON.parse(localStorage.getItem('astro_base')) || {}; } catch (e) { return {}; } }
+// M.S and bone fields take raw numbers; the program converts them to % of your saved baseline
+const n = (id) => { const v = +$(id).value; if (!v) return undefined; if (BKEY[id]) { const b = getBase()[BKEY[id]]; return b ? +(v / b * 100).toFixed(1) : undefined; } return v; };
+const last = (k) => { for (let i = readings.length - 1; i >= 0; i--) if (readings[i][k] != null) return readings[i][k]; return null; };
+function boneAlerts() {
+  const out = [], hs = last('boneHS'), fn = last('boneFN');
+  if (hs != null && hs < 95) out.push({ type: 'boneHS', title: 'Bone density below limit (hip/spine)', reason: `${hs}% (NASA limit: 95%) [V1 4027]` });
+  if (fn != null && fn < 90) out.push({ type: 'boneFN', title: 'Bone density below limit (femoral neck)', reason: `${fn}% (NASA limit: 90%) [V1 4027]` });
+  return out;
+}
+const outbox = [], queued = new Set();
+function queue(kind, text, key) {
+  if (queued.has(key)) return; queued.add(key);
+  outbox.push({ t: new Date().toLocaleString(), kind, text, sent: false });
+  try { store.log('queued_for_earth_' + kind); } catch (e) {}
+  drawOutbox();
+}
+function drawOutbox() {
+  $('outbox').innerHTML = outbox.slice().reverse().map((o) => `<div class="item ${o.sent ? '' : 'warning'}"><b>${o.kind === 'alert' ? 'Alert' : 'Daily report'}: ${o.sent ? 'Sent (simulated)' : 'Waiting for link'}</b><small>${o.t}</small><br><span style="white-space:pre-wrap">${o.text}</span></div>`).join('') || '<small>Nothing queued yet.</small>';
+}
+function drawMore() {
+  const f = (v, u = '') => (v == null ? '-' : v + u), ba = boneAlerts();
+  $('others').innerHTML = `<div>Blood O2: <b>${f(last('spo2'), '%')}</b> | Blood pressure: <b>${f(last('bpS'))}/${f(last('bpD'))}</b> | MROM (ARED Squat): <b>${f(last('mrom'))}</b><br><small>Shown and reported only. No NASA alert limit was found for these.</small></div><div style="margin-top:8px">Bone density hip/spine: <b>${f(last('boneHS'), '%')}</b> | femoral neck: <b>${f(last('boneFN'), '%')}</b><br><small>NASA limits: 95% hip/spine, 90% femoral neck [V1 4027]</small></div>`;
+  if (ba.length && !analyze(readings).alerts.length) $('alerts').innerHTML = '';
+  ba.forEach((x) => { $('alerts').insertAdjacentHTML('beforeend', `<div class="item critical"><b>${x.title}</b>${x.reason}</div>`); });
+  if (ba.length) { $('statusCard').className = 'status critical'; $('statusWord').textContent = WORDS.critical; }
+  const day = new Date().toDateString();
+  analyze(readings).alerts.map((x) => ({ title: x.title, reason: x.reason })).concat(ba).forEach((x) => queue('alert', x.title + ': ' + x.reason, 'alert|' + day + x.title));
+  const all = analyze(readings).alerts.concat(ba), akey = all.map((x) => x.title).join('|') + '|' + readings.length;
+  if (all.length && !alarmed.has(akey)) { alarmed.add(akey); alarm(); }
+  drawOutbox();
+}
+const _dx = drawExtras; drawExtras = () => { _dx(); drawMore(); };
+const _sr = showReport;
+showReport = (k) => {
+  _sr(k); if (!readings.length) return;
+  const f = (v, u = '') => (v == null ? '-' : v + u);
+  $('report').textContent += `\nBlood O2: ${f(last('spo2'), '%')} | Blood pressure: ${f(last('bpS'))}/${f(last('bpD'))} | MROM: ${f(last('mrom'))}\nBone: hip/spine ${f(last('boneHS'), '%')} (limit 95%), femoral neck ${f(last('boneFN'), '%')} (limit 90%)`;
+};
+setInterval(() => { const d = new Date(); if (d.getHours() === 0 && d.getMinutes() < 5 && readings.length) { showReport(1); queue('daily', $('report').textContent, 'daily|' + d.toDateString()); } }, 30000);
+$('testBtn').onclick = () => { if (!readings.length) return say('Add data first.'); showReport(1); queue('daily', $('report').textContent, 'test' + Date.now()); };
+$('sendAllBtn').onclick = () => { const w = outbox.filter((o) => !o.sent); w.forEach((o) => (o.sent = true)); try { store.log('sent_to_earth_simulated_' + w.length); } catch (e) {} drawOutbox(); say(w.length + ' item(s) marked as sent (simulation, no real server).'); };
+
+// ---------- Alarm sound (generated in the browser, no files) and side navigation ----------
+let actx = null, muted = false; const alarmed = new Set();
+document.addEventListener('click', () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} });
+function alarm() {
+  if (muted || !actx) return;
+  try { const t = actx.currentTime;
+    for (let i = 0; i < 6; i++) { const o = actx.createOscillator(), g = actx.createGain(), s = t + i * 0.32;
+      o.type = 'square'; o.frequency.setValueAtTime(i % 2 ? 640 : 960, s);
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.22, s + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.28);
+      o.connect(g); g.connect(actx.destination); o.start(s); o.stop(s + 0.3); }
+  } catch (e) {}
+}
+$('alarmBtn').onclick = () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} alarm(); };
+$('muteBtn').onclick = () => { muted = !muted; $('muteBtn').textContent = muted ? '🔇 Sound off' : '🔊 Sound on'; };
+document.querySelectorAll('#nav button').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('.view').forEach((v) => (v.hidden = v.id !== 'v-' + b.dataset.v));
+  document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x === b));
+  window.scrollTo(0, 0);
+}));
+
+// ---------- Baseline: enter raw numbers, the program computes % of baseline ----------
+function showBase() {
+  const b = getBase();
+  $('baseNote').textContent = (b.ms || b.hs || b.fn) ? `Saved baseline: M.S ${b.ms ?? '-'} | hip/spine ${b.hs ?? '-'} | femoral neck ${b.fn ?? '-'}. Daily numbers are divided by these.` : 'No baseline saved yet. Save it before entering M.S or bone numbers.';
+}
+$('saveBase').onclick = () => {
+  const b = { ms: +$('bMS').value || undefined, hs: +$('bHS').value || undefined, fn: +$('bFN').value || undefined };
+  if (!b.ms && !b.hs && !b.fn) return say('Enter at least one baseline number.');
+  try { localStorage.setItem('astro_base', JSON.stringify(Object.assign(getBase(), b))); } catch (e) { return say('Could not save the baseline in this browser.'); }
+  try { store.log('baseline_saved'); } catch (e) {}
+  showBase(); say('Baseline saved.');
+};
+const _add = $('addBtn').onclick;
+$('addBtn').onclick = async (e) => {
+  const b = getBase(), need = Object.keys(BKEY).filter((id) => $(id).value && !b[BKEY[id]]);
+  if (need.length) return say('Save the baseline for this measure first (Baseline row), then add the day.');
+  const parts = Object.keys(BKEY).filter((id) => $(id).value).map((id) => `${id === 'inMuscle' ? 'M.S' : id === 'inBoneHS' ? 'hip/spine' : 'femoral neck'} = ${n(id)}% of baseline`);
+  const before = readings.length;
+  await _add(e);
+  if (parts.length && readings.length > before) say('Day saved. ' + parts.join(', ') + '.');
+};
+const _d2 = drawExtras; drawExtras = () => { _d2(); showBase(); };
+
+// ---------- No password: the app opens by itself with a built-in key ----------
+(async () => {
+  $('lock').hidden = true;
+  $('pass').value = 'astrophysio-no-password';
+  await $('unlockBtn').onclick();
+  if (!$('app').hidden) return;                       // opened fine
+  $('lock').hidden = false; $('pass').value = '';
+  if (/Wrong passphrase/.test($('lockMsg').textContent) &&
+      confirm('Password protection was removed. Old data on this device is locked with your previous password and cannot be opened now.\n\nOK = erase the old data and continue.\nCancel = enter your old password once.')) {
+    await store.resetAll(); location.reload();
+  }
+})();
+
+</script>
+</body>
+</html>
