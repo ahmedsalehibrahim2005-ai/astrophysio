@@ -46,8 +46,8 @@ pre.report{white-space:pre-wrap;padding:14px;font:inherit;font-size:.9rem;margin
 <section id="lock" class="lock">
   <svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="14" fill="#5b8cff"/><ellipse cx="32" cy="32" rx="28" ry="9" fill="none" stroke="#cfe0ff" stroke-width="2" transform="rotate(-20 32 32)"/><circle cx="55" cy="22" r="3" fill="#fff"/></svg>
   <h1>AstroPhysio</h1>
-  <p>Prototype note: this app normally opens by itself with a built-in key, so it is not password-protected. You are seeing this screen because older data on this device was locked with a previous password. Enter that old password to open it, or erase the old data to start over.</p>
-  <input id="pass" type="password" placeholder="Old passphrase" autocomplete="off">
+  <p>Health data on this device is encrypted. Enter a passphrase to unlock. First time? Whatever you enter becomes your passphrase.</p>
+  <input id="pass" type="password" placeholder="Passphrase" autocomplete="off">
   <button id="unlockBtn">Unlock</button>
   <p id="lockMsg" class="msg"></p>
   <button id="resetBtn" class="ghost">Forgot passphrase? Erase data and start over</button>
@@ -418,6 +418,7 @@ async function refresh() {
   chart($('cHR'), readings.map((r) => r.restingHR), null, '#d6453d');
   chart($('cSleep'), readings.map((r) => r.sleepHours), null, '#2a6fb0');
   chart($('cSteps'), readings.map((r) => r.steps), null, '#2f9e6e');
+  drawExtras();
 
   $('alerts').innerHTML = a.alerts.length
     ? a.alerts.map((x) => `<div class="item ${x.severity}"><b>${x.title}</b>${x.reason}<br><small>${x.advice}</small></div>`).join('')
@@ -427,8 +428,6 @@ async function refresh() {
   $('exercises').innerHTML = ex.length
     ? ex.map((e) => `<div class="item"><b>${e.name}</b>${e.muscles} · ${e.dose}<br><small>${e.how}</small></div>`).join('')
     : '<div class="item">Nothing needed. Keep the normal routine.</div>';
-
-  drawExtras();
 
   $('audit').innerHTML = (await store.getAudit()).map((l) => `<li>${l.t.replace('T', ' ').slice(0, 19)} — ${l.event}</li>`).join('');
 }
@@ -533,9 +532,6 @@ function drawOutbox() {
 function drawMore() {
   const f = (v, u = '') => (v == null ? '-' : v + u), ba = boneAlerts();
   $('others').innerHTML = `<div>Blood O2: <b>${f(last('spo2'), '%')}</b> | Blood pressure: <b>${f(last('bpS'))}/${f(last('bpD'))}</b> | MROM (ARED Squat): <b>${f(last('mrom'))}</b><br><small>Shown and reported only. No NASA alert limit was found for these.</small></div><div style="margin-top:8px">Bone density hip/spine: <b>${f(last('boneHS'), '%')}</b> | femoral neck: <b>${f(last('boneFN'), '%')}</b><br><small>NASA limits: 95% hip/spine, 90% femoral neck [V1 4027]</small></div>`;
-  if (ba.length && !analyze(readings).alerts.length) $('alerts').innerHTML = '';
-  ba.forEach((x) => { $('alerts').insertAdjacentHTML('beforeend', `<div class="item critical"><b>${x.title}</b>${x.reason}</div>`); });
-  if (ba.length) { $('statusCard').className = 'status critical'; $('statusWord').textContent = WORDS.critical; }
   const day = new Date().toDateString();
   analyze(readings).alerts.map((x) => ({ title: x.title, reason: x.reason })).concat(ba).forEach((x) => queue('alert', x.title + ': ' + x.reason, 'alert|' + day + x.title));
   const all = analyze(readings).alerts.concat(ba), akey = all.map((x) => x.title).join('|') + '|' + readings.length;
@@ -595,6 +591,15 @@ $('addBtn').onclick = async (e) => {
   if (parts.length && readings.length > before) say('Day saved. ' + parts.join(', ') + '.');
 };
 const _d2 = drawExtras; drawExtras = () => { _d2(); showBase(); };
+
+// Bone alerts are painted after refresh() finishes, so the alert list does not overwrite them
+function paintBone() {
+  const ba = boneAlerts(); if (!ba.length) return;
+  if (/^No alerts/.test($('alerts').textContent.trim())) $('alerts').innerHTML = '';
+  ba.forEach((x) => $('alerts').insertAdjacentHTML('beforeend', `<div class="item critical"><b>${x.title}</b>${x.reason}</div>`));
+  $('statusCard').className = 'status critical'; $('statusWord').textContent = WORDS.critical;
+}
+const _rf = refresh; refresh = async () => { await _rf(); paintBone(); };
 
 // ---------- No password: the app opens by itself with a built-in key ----------
 (async () => {
